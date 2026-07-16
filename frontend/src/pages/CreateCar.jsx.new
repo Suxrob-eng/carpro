@@ -1,0 +1,108 @@
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import api from '../api/axios'
+import { toast } from 'react-toastify'
+import { FaArrowRight, FaCamera, FaCar } from 'react-icons/fa'
+
+const CreateCar = () => {
+  const navigate = useNavigate()
+  const [categories, setCategories] = useState([])
+  const [formData, setFormData] = useState({ name: '', model: '', price: '', color: '', category_id: '' })
+  const [images, setImages] = useState([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetchCategories()
+  }, [])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/categories')
+      setCategories(response.data || [])
+    } catch (error) {
+      console.error('Category load failed:', error)
+    }
+  }
+
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
+  const handleFileChange = (e) => setImages(e.target.files)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      const form = new FormData()
+      form.append('name', formData.name)
+      form.append('model', formData.model)
+      form.append('price', Number(formData.price))
+      form.append('color', formData.color)
+      form.append('category_id', Number(formData.category_id))
+
+      if (images.length > 0) {
+        form.append('image', images[0])
+      }
+
+      await api.post('/cars', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      toast.success('Vehicle listed successfully')
+      navigate('/cars')
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex min-h-[calc(100vh-140px)] items-center justify-center py-10">
+      <div className="glass-panel w-full max-w-3xl overflow-hidden">
+        <div className="border-b border-white/10 bg-gradient-to-r from-sky-500/10 to-violet-500/10 px-6 py-8 text-center sm:px-8">
+          <p className="inline-flex rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1 text-sm font-medium text-sky-200">List a vehicle</p>
+          <h2 className="mt-4 text-3xl font-semibold text-white">Publish your next listing</h2>
+          <p className="mt-2 text-sm leading-7 text-slate-400">Share the essential details and let your car stand out beautifully.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-6 sm:p-8">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <label className="rounded-[18px] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <span className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-slate-500"><FaCar /> Brand</span>
+              <input type="text" name="name" placeholder="Brand" value={formData.name} onChange={handleChange} className="w-full bg-transparent outline-none" required />
+            </label>
+            <label className="rounded-[18px] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <span className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-500">Model</span>
+              <input type="text" name="model" placeholder="Model" value={formData.model} onChange={handleChange} className="w-full bg-transparent outline-none" required />
+            </label>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <label className="rounded-[18px] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <span className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-500">Price</span>
+              <input type="number" name="price" placeholder="Price" value={formData.price} onChange={handleChange} className="w-full bg-transparent outline-none" required />
+            </label>
+            <label className="rounded-[18px] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <span className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-500">Category</span>
+              <select name="category_id" value={formData.category_id} onChange={handleChange} className="w-full bg-transparent outline-none" required>
+                <option value="">Select category</option>
+                {categories.map((cat) => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+              </select>
+            </label>
+            <label className="rounded-[18px] border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-slate-300">
+              <span className="mb-2 block text-xs uppercase tracking-[0.25em] text-slate-500">Color</span>
+              <input type="text" name="color" placeholder="Color" value={formData.color} onChange={handleChange} className="w-full bg-transparent outline-none" required />
+            </label>
+          </div>
+
+          <label className="block rounded-[18px] border border-dashed border-white/10 bg-slate-950/60 px-4 py-4 text-sm text-slate-300">
+            <span className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.25em] text-slate-500"><FaCamera /> Upload image</span>
+            <input type="file" accept="image/*" onChange={handleFileChange} className="w-full text-sm text-slate-400" />
+          </label>
+
+          <button type="submit" disabled={loading} className="button-primary w-full gap-2">
+            {loading ? 'Publishing...' : 'Publish listing'} <FaArrowRight />
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default CreateCar
