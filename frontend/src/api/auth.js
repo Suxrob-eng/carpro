@@ -22,7 +22,7 @@ export const changePassword = (data) => api.post('/auth/change-password', data);
 export const uploadAvatar = (file) => {
   const formData = new FormData();
   formData.append('avatar', file);
-  return api.put('/auth/profile', formData, {
+  return api.post('/auth/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };

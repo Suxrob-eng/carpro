@@ -24,7 +24,7 @@ const Profile = () => {
     try {
       const formData = new FormData()
       formData.append('avatar', file)
-      await api.put('/auth/profile', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await api.post('/auth/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
       await fetchUser()
       toast.success('Avatar updated')
     } catch (error) {
@@ -58,7 +58,7 @@ const Profile = () => {
         <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[320px_1fr]">
           <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-6 text-center">
             <div className="relative mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_50px_rgba(59,130,246,0.18)]">
-              <img src={user.avatar || '/default-avatar.svg'} alt="Avatar" onError={(e) => { e.currentTarget.src = '/default-avatar.svg' }} className="h-full w-full object-cover" />
+              <img src={user.avatar_url || user.avatar || '/default-avatar.svg'} alt="Avatar" onError={(e) => { e.currentTarget.src = '/default-avatar.svg' }} className="h-full w-full object-cover" />
             </div>
             <button onClick={() => fileInputRef.current?.click()} className="button-secondary mt-6" disabled={uploading}>
               <FaCamera className="mr-2" /> {uploading ? t('profile.uploading') : t('profile.uploadAvatar')}
