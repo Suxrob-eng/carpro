@@ -730,32 +730,74 @@ def remove_from_garage(item_id: int, db: Session = Depends(get_db), current_user
 
 # 12. Market Analytics — ✅ FIXED: Now queries real DB data
 @router.get("/analytics/market")
-def get_market_analytics(db: Session = Depends(get_db)):
-    # Real: Most viewed cars from DB
-    most_viewed_raw = db.query(Car).filter(Car.status == "active").order_by(Car.views_count.desc()).limit(5).all()
+def get_market_analytics(
+    db: Session = Depends(get_db),
+    range: str = Query("month"),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None)
+):
+    """Market analytics with date range filtering"""
+    from datetime import datetime, timedelta
+    from sqlalchemy import extract
+    
+    # Parse date range
+    now = datetime.now()
+    
+    if start_date and end_date:
+        try:
+            date_start = datetime.fromisoformat(start_date)
+            date_end = datetime.fromisoformat(end_date)
+        except:
+            date_start = now - timedelta(days=30)
+            date_end = now
+    else:
+        if range == "today":
+            date_start = datetime(now.year, now.month, now.day)
+            date_end = now
+        elif range == "week":
+            date_start = now - timedelta(days=7)
+            date_end = now
+        else:  # month or default
+            date_start = datetime(now.year, now.month, 1)
+            date_end = now
+    
+    # Most viewed cars in date range
+    most_viewed_raw = db.query(Car).filter(
+        Car.status == "active",
+        Car.created_at >= date_start,
+        Car.created_at <= date_end
+    ).order_by(Car.views_count.desc()).limit(5).all()
+    
     most_viewed = [{"brand": c.brand, "model": c.model, "views": c.views_count} for c in most_viewed_raw]
     if not most_viewed:
         most_viewed = [{"brand": "No data", "model": "yet", "views": 0}]
 
-    # Real: Average price per brand from DB
-    brand_avg = db.query(Car.brand, func.avg(Car.price).label("avg_price")).group_by(Car.brand).order_by(desc("avg_price")).limit(5).all()
+    # Average price per brand
+    brand_avg = db.query(Car.brand, func.avg(Car.price).label("avg_price")).filter(
+        Car.created_at >= date_start,
+        Car.created_at <= date_end
+    ).group_by(Car.brand).order_by(desc("avg_price")).limit(5).all()
 
-    # Real: Count by fuel type
-    fuel_counts_raw = db.query(Car.fuel, func.count(Car.id).label("cnt")).group_by(Car.fuel).all()
+    # Count by fuel type
+    fuel_counts_raw = db.query(Car.fuel, func.count(Car.id).label("cnt")).filter(
+        Car.created_at >= date_start,
+        Car.created_at <= date_end
+    ).group_by(Car.fuel).all()
     total_cars = sum(r.cnt for r in fuel_counts_raw) or 1
     popular_body_types = [
         {"type": str(r.fuel.value if hasattr(r.fuel, 'value') else r.fuel), "percentage": round((r.cnt / total_cars) * 100)}
         for r in fuel_counts_raw
     ]
 
-    # Real: Trending brands (most listed)
-    trending_raw = db.query(Car.brand, func.count(Car.id).label("cnt")).group_by(Car.brand).order_by(desc("cnt")).limit(5).all()
+    # Trending brands
+    trending_raw = db.query(Car.brand, func.count(Car.id).label("cnt")).filter(
+        Car.created_at >= date_start,
+        Car.created_at <= date_end
+    ).group_by(Car.brand).order_by(desc("cnt")).limit(5).all()
     trending_brands = [r.brand for r in trending_raw] or ["Tesla", "BMW", "Toyota", "Mercedes", "Audi"]
 
-    # Real: Average price grouped by month (last 6 months)
-    from sqlalchemy import extract
+    # Average price grouped by month (last 6 months)
     monthly_avgs = []
-    now = datetime.now()
     for i in range(5, -1, -1):
         month_dt = datetime(now.year, now.month, 1) - timedelta(days=i * 30)
         avg_p = db.query(func.avg(Car.price)).filter(
@@ -767,8 +809,11 @@ def get_market_analytics(db: Session = Depends(get_db)):
             "avg_price": round(avg_p or 0, 2)
         })
 
-    # Real: Most common colors
-    color_raw = db.query(Car.color, func.count(Car.id).label("cnt")).group_by(Car.color).order_by(desc("cnt")).limit(5).all()
+    # Popular colors
+    color_raw = db.query(Car.color, func.count(Car.id).label("cnt")).filter(
+        Car.created_at >= date_start,
+        Car.created_at <= date_end
+    ).group_by(Car.color).order_by(desc("cnt")).limit(5).all()
     popular_colors = [r.color for r in color_raw] or ["Black", "White", "Silver", "Blue", "Red"]
 
     return {

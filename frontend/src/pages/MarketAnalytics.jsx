@@ -1,55 +1,158 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { FaArrowUp, FaFire, FaChartLine, FaPalette, FaCar, FaGasPump } from 'react-icons/fa'
+import { FaArrowUp, FaFire, FaChartLine, FaPalette, FaCar, FaGasPump, FaDownload } from 'react-icons/fa'
+import { toast } from 'react-toastify'
 import api from '../api/axios'
 import { useLanguage } from '../context/LanguageContext'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import * as XLSX from 'xlsx'
 
 const MarketAnalytics = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [dateRange, setDateRange] = useState('month')
+  const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+  const [endDate, setEndDate] = useState(new Date())
+  const reportRef = useRef(null)
+
+  const loadAnalytics = async (range = 'month', start = null, end = null) => {
+    setLoading(true)
+    try {
+      const params = { range: range }
+      if (start && end) {
+        params.start_date = start.toISOString().split('T')[0]
+        params.end_date = end.toISOString().split('T')[0]
+      }
+      const response = await api.get('/analytics/market', { params })
+      setData(response.data)
+      toast.success('Analytics loaded successfully')
+    } catch (error) {
+      console.error(error)
+      setData({
+        most_viewed: [
+          { brand: 'Tesla', model: 'Model S Plaid', views: 18450 },
+          { brand: 'Porsche', model: '911 GT3', views: 14200 },
+          { brand: 'BMW', model: 'M4 Competition', views: 12100 }
+        ],
+        fastest_selling: [
+          { brand: 'Toyota', model: 'RAV4 Hybrid', avg_days: 4 },
+          { brand: 'Tesla', model: 'Model Y', avg_days: 6 },
+          { brand: 'Honda', model: 'Civic Type R', avg_days: 8 }
+        ],
+        trending_brands: ['Tesla', 'Porsche', 'BMW', 'Mercedes-Benz', 'Toyota'],
+        popular_colors: ['Matte Black', 'Chalk White', 'Satin Grey', 'Metallic Blue', 'Crimson Red'],
+        average_prices: [
+          { month: 'Jan', avg_price: 31200 },
+          { month: 'Feb', avg_price: 31500 },
+          { month: 'Mar', avg_price: 32100 },
+          { month: 'Apr', avg_price: 31900 },
+          { month: 'May', avg_price: 32600 },
+          { month: 'Jun', avg_price: 33000 }
+        ],
+        popular_body_types: [
+          { type: 'SUV', percentage: 38 },
+          { type: 'Sedan', percentage: 27 },
+          { type: 'Coupe', percentage: 19 },
+          { type: 'Electric', percentage: 16 }
+        ]
+      })
+      toast.error('Using demo data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const loadAnalytics = async () => {
-      try {
-        const response = await api.get('/analytics/market')
-        setData(response.data)
-      } catch (error) {
-        console.error(error)
-        setData({
-          most_viewed: [
-            { brand: 'Tesla', model: 'Model S Plaid', views: 18450 },
-            { brand: 'Porsche', model: '911 GT3', views: 14200 },
-            { brand: 'BMW', model: 'M4 Competition', views: 12100 }
-          ],
-          fastest_selling: [
-            { brand: 'Toyota', model: 'RAV4 Hybrid', avg_days: 4 },
-            { brand: 'Tesla', model: 'Model Y', avg_days: 6 },
-            { brand: 'Honda', model: 'Civic Type R', avg_days: 8 }
-          ],
-          trending_brands: ['Tesla', 'Porsche', 'BMW', 'Mercedes-Benz', 'Toyota'],
-          popular_colors: ['Matte Black', 'Chalk White', 'Satin Grey', 'Metallic Blue', 'Crimson Red'],
-          average_prices: [
-            { month: 'Jan', avg_price: 31200 },
-            { month: 'Feb', avg_price: 31500 },
-            { month: 'Mar', avg_price: 32100 },
-            { month: 'Apr', avg_price: 31900 },
-            { month: 'May', avg_price: 32600 },
-            { month: 'Jun', avg_price: 33000 }
-          ],
-          popular_body_types: [
-            { type: 'SUV', percentage: 38 },
-            { type: 'Sedan', percentage: 27 },
-            { type: 'Coupe', percentage: 19 },
-            { type: 'Electric', percentage: 16 }
-          ]
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadAnalytics()
+    loadAnalytics(dateRange, startDate, endDate)
   }, [])
+
+  const handleDateFilter = (range) => {
+    const now = new Date()
+    let start
+    
+    switch (range) {
+      case 'today':
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        break
+      case 'week':
+        start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        break
+      case 'month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1)
+        break
+      case 'custom':
+        return // Custom range handled separately
+      default:
+        start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    }
+    
+    setDateRange(range)
+    setStartDate(start)
+    setEndDate(now)
+    loadAnalytics(range, start, now)
+  }
+
+  const handleCustomDate = () => {
+    loadAnalytics(dateRange, startDate, endDate)
+  }
+
+  const exportPDF = async () => {
+    if (!reportRef.current) return
+    
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, backgroundColor: '#ffffff' })
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const imgData = canvas.toDataURL('image/png')
+      const imgWidth = 210
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+      let heightLeft = imgHeight
+      let position = 0
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= 297
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight
+        pdf.addPage()
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+        heightLeft -= 297
+      }
+
+      pdf.save('market-analytics.pdf')
+      toast.success('PDF exported successfully')
+    } catch (error) {
+      console.error('PDF export error:', error)
+      toast.error('Failed to export PDF')
+    }
+  }
+
+  const exportExcel = () => {
+    try {
+      const ws = XLSX.utils.json_to_sheet([
+        { 'Market Analytics Report': '' },
+        { 'Generated': new Date().toLocaleDateString() },
+        { 'Date Range': `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}` },
+        { '': '' },
+        { 'Most Viewed Cars': '' },
+        ...data.most_viewed.map(c => ({ Brand: c.brand, Model: c.model, Views: c.views })),
+        { '': '' },
+        { 'Fastest Selling': '' },
+        ...data.fastest_selling.map(c => ({ Brand: c.brand, Model: c.model, 'Days to Sell': c.avg_days })),
+        { '': '' },
+        { 'Trending Brands': data.trending_brands.join(', ') },
+        { 'Popular Colors': data.popular_colors.join(', ') }
+      ])
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Analytics')
+      XLSX.writeFile(wb, 'market-analytics.xlsx')
+      toast.success('Excel exported successfully')
+    } catch (error) {
+      console.error('Excel export error:', error)
+      toast.error('Failed to export Excel')
+    }
+  }
 
   const { t, formatDate } = useLanguage()
 
@@ -61,8 +164,16 @@ const MarketAnalytics = () => {
     )
   }
 
+  if (!data) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <p className="text-lg text-[var(--muted)]">No data available</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 py-8" ref={reportRef}>
       <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="bg-gradient-to-r from-sky-400 via-blue-500 to-violet-500 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl">
@@ -73,28 +184,74 @@ const MarketAnalytics = () => {
           </p>
         </div>
         
-        {/* Export Buttons */}
+      {/* Export Buttons */}
         <div className="flex gap-3">
-          <button className="button-secondary text-xs px-4 py-2" title={t('analytics.exportPdf')}>
-            {t('analytics.exportPdf')}
+          <button 
+            onClick={exportPDF}
+            className="button-secondary text-xs px-4 py-2 flex items-center gap-2 hover:bg-sky-600" 
+            title="Export as PDF"
+          >
+            <FaDownload /> PDF
           </button>
-          <button className="button-secondary text-xs px-4 py-2" title={t('analytics.exportExcel')}>
-            {t('analytics.exportExcel')}
+          <button 
+            onClick={exportExcel}
+            className="button-secondary text-xs px-4 py-2 flex items-center gap-2 hover:bg-emerald-600" 
+            title="Export as Excel"
+          >
+            <FaDownload /> Excel
           </button>
         </div>
       </div>
 
-      {/* Date Range Toggles & Formatted Date */}
+      {/* Date Range Toggles & Custom Range */}
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4 bg-[var(--card)] p-4 rounded-2xl border border-[var(--border)]">
-        <div className="flex gap-2">
-          {['dateToday', 'dateWeek', 'dateMonth', 'dateCustom'].map(key => (
-            <button key={key} className={`px-4 py-1.5 text-xs font-bold rounded-full transition ${key === 'dateMonth' ? 'bg-sky-500 text-white' : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-[var(--text)]'}`}>
-              {t(`analytics.${key}`)}
+        <div className="flex gap-2 flex-wrap">
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'week', label: 'This Week' },
+            { id: 'month', label: 'This Month' },
+            { id: 'custom', label: 'Custom Range' }
+          ].map(btn => (
+            <button 
+              key={btn.id}
+              onClick={() => handleDateFilter(btn.id)}
+              className={`px-4 py-1.5 text-xs font-bold rounded-full transition ${
+                dateRange === btn.id 
+                  ? 'bg-sky-500 text-white' 
+                  : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-[var(--text)]'
+              }`}
+            >
+              {btn.label}
             </button>
           ))}
         </div>
+
+        {dateRange === 'custom' && (
+          <div className="flex gap-2 items-center">
+            <input
+              type="date"
+              value={startDate.toISOString().split('T')[0]}
+              onChange={(e) => setStartDate(new Date(e.target.value))}
+              className="px-3 py-1 text-xs rounded-lg bg-[var(--background)] border border-[var(--border)] text-[var(--text)]"
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={endDate.toISOString().split('T')[0]}
+              onChange={(e) => setEndDate(new Date(e.target.value))}
+              className="px-3 py-1 text-xs rounded-lg bg-[var(--background)] border border-[var(--border)] text-[var(--text)]"
+            />
+            <button
+              onClick={handleCustomDate}
+              className="px-3 py-1 text-xs bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+
         <div className="text-sm font-bold text-sky-500">
-          {formatDate(new Date())}
+          {startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}
         </div>
       </div>
 
