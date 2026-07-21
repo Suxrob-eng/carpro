@@ -16,10 +16,10 @@ const MarketAnalytics = () => {
   const [endDate, setEndDate] = useState(new Date())
   const reportRef = useRef(null)
 
-  const loadAnalytics = async (range = 'month', start = null, end = null) => {
+  const loadAnalytics = async (dateRange = 'month', start = null, end = null) => {
     setLoading(true)
     try {
-      const params = { range: range }
+      const params = { date_range: dateRange }
       if (start && end) {
         params.start_date = start.toISOString().split('T')[0]
         params.end_date = end.toISOString().split('T')[0]

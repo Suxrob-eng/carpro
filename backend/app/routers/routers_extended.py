@@ -732,7 +732,7 @@ def remove_from_garage(item_id: int, db: Session = Depends(get_db), current_user
 @router.get("/analytics/market")
 def get_market_analytics(
     db: Session = Depends(get_db),
-    range: str = Query("month"),
+    date_range: str = Query("month"),
     start_date: Optional[str] = Query(None),
     end_date: Optional[str] = Query(None)
 ):
@@ -751,10 +751,10 @@ def get_market_analytics(
             date_start = now - timedelta(days=30)
             date_end = now
     else:
-        if range == "today":
+        if date_range == "today":
             date_start = datetime(now.year, now.month, now.day)
             date_end = now
-        elif range == "week":
+        elif date_range == "week":
             date_start = now - timedelta(days=7)
             date_end = now
         else:  # month or default
