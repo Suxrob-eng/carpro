@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api'
+const API_BASE_URL = '/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -34,7 +34,7 @@ api.interceptors.response.use(
           throw new Error('No refresh token')
         }
 
-        const response = await axios.post('/api/auth/refresh', {
+        const response = await api.post('/auth/refresh', {
           refresh_token: refreshToken,
         })
 
