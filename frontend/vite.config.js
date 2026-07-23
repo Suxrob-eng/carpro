@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const API_PROXY = env.VITE_API_URL || 'http://localhost:8000'
+  const apiUrl = env.VITE_API_URL?.trim()
+  const API_PROXY_URL = apiUrl || 'http://localhost:8000'
+  const API_PROXY = API_PROXY_URL.replace(/\/api\/?$/, '') || 'http://localhost:8000'
   const BASE = env.VITE_BASE_URL || '/'
 
   return defineConfig({
