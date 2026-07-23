@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     STATIC_ROOT: str = os.getenv("STATIC_ROOT", "./static")
 
     # CORS
-    BACKEND_CORS_ORIGINS: list = ["*"]
+    # Read comma-separated origins from env, default to '*'
+    BACKEND_CORS_ORIGINS: list = os.getenv("BACKEND_CORS_ORIGINS", "*").split(",")
 
     class Config:
         env_file = ".env"
