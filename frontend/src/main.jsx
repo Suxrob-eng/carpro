@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <App />
           <ToastContainer position="top-right" autoClose={3000} />
         </LanguageProvider>
-      </AuthProvider>
-    </BrowserRouter>
+        </AuthProvider>
+      </HashRouter>
   </React.StrictMode>
 )
